@@ -309,6 +309,11 @@ font-family:var(--brand-font);text-decoration:underline;cursor:pointer;margin-to
 .invite-onboard-card p{font-size:14px;line-height:1.5}
 .invite-onboard-card label{display:block;margin:13px 0 5px;font-size:13px}
 .invite-onboard-card input{width:100%}
+/* PIN is a numeric access code, not a browser password field. */
+#pinLoginValue{ -webkit-text-security:disc; }
+#pinManagerIdentity{font-size:17px;font-weight:700;padding:9px 0 4px;}
+#pinSwitchManager{background:none;border:0;color:var(--cream);text-decoration:underline;font:inherit;cursor:pointer;padding:5px 0 10px;}
+#pinManagerPicker[hidden],#pinRememberedManager[hidden],#pinRecoveryDetails[hidden]{display:none!important;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -393,7 +398,7 @@ font-family:var(--brand-font);text-decoration:underline;cursor:pointer;margin-to
 <div class="panel" id="membershipPanel" style="display:none">
 <h2>Membership Management</h2>
 <p class="member-note">Sign in with your personal 4-digit PIN, or use email and password.</p>
-<div id="memberLoginArea"><div class="panel" style="margin:0 0 14px;padding:13px"><h3 style="margin:0 0 10px">Manager PIN Sign-In</h3><label for="pinManagerSelect">Manager</label><select id="pinManagerSelect"><option value="">Loading Managers...</option></select><label for="pinLoginValue" style="display:block;margin-top:10px">4-digit PIN</label><input id="pinLoginValue" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" placeholder="Enter your PIN"><button class="primary-btn" type="button" id="pinLoginBtn">Sign in with PIN</button><div class="member-note" id="pinLoginMessage" role="status"></div></div><details><summary style="cursor:pointer">Sign in with Email and Password Instead</summary><div style="padding-top:10px"><label>Manager Email</label><input id="memberEmail" type="email" autocomplete="username" placeholder="Email"><label>Password</label><input id="memberPassword" type="password" autocomplete="current-password" placeholder="Password"><div class="member-actions"><button type="button" id="memberLogin">Sign in</button></div></div></details>
+<div id="memberLoginArea"><div class="panel" style="margin:0 0 14px;padding:13px"><h3 style="margin:0 0 10px">Manager PIN Sign-In</h3><div id="pinRememberedManager" hidden><div class="member-note">Manager</div><div id="pinManagerIdentity"></div><button type="button" id="pinSwitchManager">Use a different manager</button></div><div id="pinManagerPicker"><label for="pinManagerSelect">Manager</label><select id="pinManagerSelect"><option value="">Loading Managers...</option></select></div><label for="pinLoginValue" style="display:block;margin-top:10px">4-digit PIN</label><input id="pinLoginValue" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" autocorrect="off" spellcheck="false" placeholder="Enter your PIN" aria-label="4-digit manager PIN"><button class="primary-btn" type="button" id="pinLoginBtn">Sign in with PIN</button><div class="member-note" id="pinLoginMessage" role="status"></div><button type="button" id="pinForgotBtn" class="settings-toggle" style="margin:12px 0 0">Forgot PIN?</button><div id="pinRecoveryDetails" hidden style="margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:4px"><p class="hint">Enter your manager email to receive a secure recovery link. You can set a new password and PIN without knowing the old PIN.</p><label for="pinRecoveryEmail">Manager Email</label><input id="pinRecoveryEmail" type="email" autocomplete="email" placeholder="Your work email"><button class="primary-btn" type="button" id="pinRecoverySend">Email Recovery Link</button><div class="member-note" id="pinRecoveryMessage" role="status"></div></div></div><details><summary style="cursor:pointer">Sign in with Email and Password Instead</summary><div style="padding-top:10px"><label>Manager Email</label><input id="memberEmail" type="email" autocomplete="username" placeholder="Email"><label>Password</label><input id="memberPassword" type="password" autocomplete="current-password" placeholder="Password"><div class="member-actions"><button type="button" id="memberLogin">Sign in</button></div></div></details>
 <div id="managerRecoveryArea" style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px"><h3 style="font-size:15px">Complete Existing Manager Account</h3><p class="hint">If you already accepted an invitation but did not create your password and PIN, request an account setup email.</p><label for="managerRecoveryEmail">Manager Email</label><input id="managerRecoveryEmail" type="email" autocomplete="email" placeholder="Your work email"><button class="primary-btn" type="button" id="requestManagerRecovery">Email Account Setup Link</button><div class="member-note" id="managerRecoveryMessage" role="status"></div></div>
 </div>
 
@@ -521,6 +526,7 @@ const supabaseClient = supabase.createClient(
 const WORKSTATION_KEY = 'gr-short-game-workstation-v1';
 const MANAGER_SESSION_KEY = 'gr-short-game-manager-session-start-v1';
 const MANAGER_PIN_FUNCTION = 'short-game-pin-login';
+const REMEMBERED_MANAGER_KEY = 'gr-short-game-remembered-manager-v1';
 const MANAGER_MAX_MS = 5 * 60 * 1000;
 const MANAGER_TYPING_GRACE_MS = 60 * 1000;
 let workstationToken = localStorage.getItem(WORKSTATION_KEY) || '';
@@ -1313,6 +1319,24 @@ async function findMembers(q){
 }
 function showMatches(target,members,onPick){target.replaceChildren();if(!members.length){target.textContent='No matching members found.';return;}members.forEach(m=>{const b=document.createElement('button');b.type='button';b.className='member-result';b.textContent=`${m.first_name} ${m.last_name} · ${m.phone||'No phone'} · ${m.membership_status||'Unknown'} · ${m.membership_type||''}`;b.onclick=()=>onPick(m);target.appendChild(b);});}
 async function checkMemberSession(){if(managerSessionExpired()){await endManagerSession();return;}const {data}=await supabaseClient.auth.getSession();if(!data?.session){memberAuthenticated=false;return;}if(!managerSessionStart()){memberAuthenticated=false;await supabaseClient.auth.signOut();return;}const {data:ok,error}=await supabaseClient.rpc('is_membership_manager');memberAuthenticated=!error && ok===true;}
+function rememberedManager(){
+  try {const value=JSON.parse(localStorage.getItem(REMEMBERED_MANAGER_KEY)||'null');
+    return value && typeof value.id==='string' && typeof value.name==='string' ? value : null;
+  }catch(_){return null;}
+}
+function displayPinManagerChoice(){
+  const selected=rememberedManager();
+  document.getElementById('pinRememberedManager').hidden=!selected;
+  document.getElementById('pinManagerPicker').hidden=!!selected;
+  document.getElementById('pinManagerIdentity').textContent=selected?.name||'';
+}
+document.getElementById('pinSwitchManager').onclick=()=>{
+  localStorage.removeItem(REMEMBERED_MANAGER_KEY);
+  displayPinManagerChoice();
+  document.getElementById('pinLoginValue').value='';
+  document.getElementById('pinLoginMessage').textContent='Select your manager account.';
+  refreshPinManagerList();
+};
 async function refreshPinManagerList(){
   const select=document.getElementById('pinManagerSelect');
   if(!workstationReady){select.replaceChildren(new Option('Authorize this browser first',''));return;}
@@ -1322,7 +1346,12 @@ async function refreshPinManagerList(){
     const old=select.value;select.replaceChildren(new Option('Select manager',''));
     for(const manager of data.managers)select.add(new Option(manager.display_name,manager.user_id));
     if([...select.options].some(o=>o.value===old))select.value=old;
-  }catch(e){select.replaceChildren(new Option('Manager list unavailable',''));console.warn(e);}
+    const remembered=rememberedManager();
+    if(remembered && !data.managers.some(m=>m.user_id===remembered.id)){
+      localStorage.removeItem(REMEMBERED_MANAGER_KEY);
+    }
+    displayPinManagerChoice();
+  }catch(e){select.replaceChildren(new Option('Manager list unavailable',''));console.warn(e);displayPinManagerChoice();}
 }
 document.getElementById('pinLoginValue').addEventListener('keydown',e=>{
  if(e.key==='Enter'&&!e.isComposing){e.preventDefault();document.getElementById('pinLoginBtn').click();}
@@ -1332,7 +1361,7 @@ document.getElementById('pinLoginBtn').onclick=async()=>{
   const message=document.getElementById('pinLoginMessage');
   const user_id=document.getElementById('pinManagerSelect').value;
   const pin=document.getElementById('pinLoginValue').value;
-  if(!user_id||!/^[0-9]{4}$/.test(pin)){message.textContent='Select your name and enter a 4-digit PIN.';return;}
+  if(!user_id||!/^[0-9]{4}$/.test(pin)){message.textContent='Enter your 4-digit PIN (select a manager if needed).';return;}
   btn.disabled=true;message.textContent='Signing in...';
   try{
     if(!workstationReady)throw new Error('Authorize this browser first.');
@@ -1343,7 +1372,12 @@ document.getElementById('pinLoginBtn').onclick=async()=>{
     if(result.error)throw result.error;
     startManagerSessionClock();await checkMemberSession();
     if(!memberAuthenticated){clearManagerSessionClock();await supabaseClient.auth.signOut();throw new Error('Manager access not available.');}
-    setRole('manager');updateMemberAuthUI();memberMsg('Manager signed in. Session expires after 5 minutes unless actively typing.');await showFirstPinSetupIfNeeded();
+    const selectedOption=[...document.getElementById('pinManagerSelect').options].find(o=>o.value===user_id);
+     const previous=rememberedManager();
+     const name=selectedOption?.textContent||previous?.name||'Manager';
+     localStorage.setItem(REMEMBERED_MANAGER_KEY,JSON.stringify({id:user_id,name}));
+     displayPinManagerChoice();
+     setRole('manager');updateMemberAuthUI();memberMsg('Manager signed in. Session expires after 5 minutes unless actively typing.');await showFirstPinSetupIfNeeded();
   }catch(e){message.textContent=e.message;}
   finally{btn.disabled=false;}
 };
@@ -1452,21 +1486,29 @@ const invitationLink=inviteUrl.searchParams.has('code') || inviteUrl.searchParam
   inviteHash.has('access_token') || ['invite','recovery','signup','magiclink'].includes(inviteHash.get('type')) ||
   ['invite','recovery'].includes(inviteUrl.searchParams.get('type'));
 let invitationFlow=invitationLink;
-document.getElementById('requestManagerRecovery').onclick=async()=>{
-  const email=document.getElementById('managerRecoveryEmail').value.trim().toLowerCase();
-  const status=document.getElementById('managerRecoveryMessage');
-  const button=document.getElementById('requestManagerRecovery');
+async function sendManagerRecovery(email,status,button){
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){status.textContent='Enter a valid work email address.';return;}
-  button.disabled=true;status.textContent='Requesting setup link...';
+  button.disabled=true;status.textContent='Requesting recovery link...';
   try{
     const redirectTo=new URL(window.location.pathname,window.location.origin);
     redirectTo.searchParams.set('manager_setup','1');
     const {error}=await supabaseClient.auth.resetPasswordForEmail(email,{redirectTo:redirectTo.toString()});
     if(error)throw error;
-    status.textContent='If this manager account exists, an account setup link will be emailed. Check your inbox and spam folder.';
+    status.textContent='If this manager account exists, a recovery link will be emailed. Check your inbox and spam folder.';
   }catch(e){status.textContent='Could not request link: '+e.message;}
   finally{button.disabled=false;}
+}
+document.getElementById('requestManagerRecovery').onclick=()=>sendManagerRecovery(
+  document.getElementById('managerRecoveryEmail').value.trim().toLowerCase(),
+  document.getElementById('managerRecoveryMessage'),document.getElementById('requestManagerRecovery'));
+document.getElementById('pinForgotBtn').onclick=()=>{
+  const panel=document.getElementById('pinRecoveryDetails');
+  panel.hidden=!panel.hidden;
+  if(!panel.hidden)document.getElementById('pinRecoveryEmail').focus();
 };
+document.getElementById('pinRecoverySend').onclick=()=>sendManagerRecovery(
+  document.getElementById('pinRecoveryEmail').value.trim().toLowerCase(),
+  document.getElementById('pinRecoveryMessage'),document.getElementById('pinRecoverySend'));
 function showInviteOnboarding(user){
   if(!user)return;
   document.getElementById('inviteOnboardEmail').textContent=user.email||'';
@@ -1557,6 +1599,7 @@ if(memberAuthenticated){setRole('manager');await showFirstPinSetupIfNeeded();}
 updateMemberAuthUI();
 await loadReservations();
 await refreshPinManagerList();
+  displayPinManagerChoice();
 })();
 </script>
 </body>
