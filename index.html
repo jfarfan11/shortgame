@@ -398,7 +398,7 @@ font-family:var(--brand-font);text-decoration:underline;cursor:pointer;margin-to
 <div class="panel" id="membershipPanel" style="display:none">
 <h2>Membership Management</h2>
 <p class="member-note">Sign in with your personal 4-digit PIN, or use email and password.</p>
-<div id="memberLoginArea"><div class="panel" style="margin:0 0 14px;padding:13px"><h3 style="margin:0 0 10px">Manager PIN Sign-In</h3><div id="pinRememberedManager" hidden><div class="member-note">Manager</div><div id="pinManagerIdentity"></div><button type="button" id="pinSwitchManager">Use a different manager</button></div><div id="pinManagerPicker"><label for="pinManagerSelect">Manager</label><select id="pinManagerSelect"><option value="">Loading Managers...</option></select></div><label for="pinLoginValue" style="display:block;margin-top:10px">4-digit PIN</label><input id="pinLoginValue" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" autocorrect="off" spellcheck="false" placeholder="Enter your PIN" aria-label="4-digit manager PIN"><button class="primary-btn" type="button" id="pinLoginBtn">Sign in with PIN</button><div class="member-note" id="pinLoginMessage" role="status"></div><button type="button" id="pinForgotBtn" class="settings-toggle" style="margin:12px 0 0">Forgot PIN?</button><div id="pinRecoveryDetails" hidden style="margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:4px"><p class="hint">Enter your manager email to receive a secure recovery link. You can set a new password and PIN without knowing the old PIN.</p><label for="pinRecoveryEmail">Manager Email</label><input id="pinRecoveryEmail" type="email" autocomplete="email" placeholder="Your work email"><button class="primary-btn" type="button" id="pinRecoverySend">Email Recovery Link</button><div class="member-note" id="pinRecoveryMessage" role="status"></div></div></div><details><summary style="cursor:pointer">Sign in with Email and Password Instead</summary><div style="padding-top:10px"><label>Manager Email</label><input id="memberEmail" type="email" autocomplete="username" placeholder="Email"><label>Password</label><input id="memberPassword" type="password" autocomplete="current-password" placeholder="Password"><div class="member-actions"><button type="button" id="memberLogin">Sign in</button></div></div></details>
+<div id="memberLoginArea"><div class="panel" style="margin:0 0 14px;padding:13px"><div id="pinOnlyArea" hidden><h3 style="margin:0 0 12px">Enter PIN</h3><input id="pinLoginValue" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" autocorrect="off" spellcheck="false" placeholder="Enter PIN" aria-label="4-digit manager PIN" style="-webkit-text-security:disc"><button class="primary-btn" type="button" id="pinLoginBtn">Sign In</button><div class="member-note" id="pinLoginMessage" role="status"></div><button type="button" id="pinForgotBtn" class="settings-toggle" style="margin:12px 0 0">Forgot PIN?</button><button type="button" id="pinSwitchManager" class="settings-toggle" style="margin:12px 0 0">Sign in with another account</button></div><div id="credentialLoginArea"><h3 style="margin:0 0 10px">Manager Sign-In</h3><p class="hint">Verify your manager account with email and password once on this browser. Future sign-ins will require only your PIN.</p><label for="memberEmail">Manager Email</label><input id="memberEmail" type="email" autocomplete="username" placeholder="Email"><label for="memberPassword">Password</label><input id="memberPassword" type="password" autocomplete="current-password" placeholder="Password"><button class="primary-btn" type="button" id="memberLogin">Verify Account &amp; Sign In</button></div><div id="pinRecoveryDetails" hidden style="margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:4px"><p class="hint">Enter your manager email to receive a secure recovery link. You can set a new password and PIN without knowing the old PIN.</p><label for="pinRecoveryEmail">Manager Email</label><input id="pinRecoveryEmail" type="email" autocomplete="email" placeholder="Your work email"><button class="primary-btn" type="button" id="pinRecoverySend">Email Recovery Link</button><div class="member-note" id="pinRecoveryMessage" role="status"></div></div></div>
 <div id="managerRecoveryArea" style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px"><h3 style="font-size:15px">Complete Existing Manager Account</h3><p class="hint">If you already accepted an invitation but did not create your password and PIN, request an account setup email.</p><label for="managerRecoveryEmail">Manager Email</label><input id="managerRecoveryEmail" type="email" autocomplete="email" placeholder="Your work email"><button class="primary-btn" type="button" id="requestManagerRecovery">Email Account Setup Link</button><div class="member-note" id="managerRecoveryMessage" role="status"></div></div>
 </div>
 
@@ -479,7 +479,7 @@ font-family:var(--brand-font);text-decoration:underline;cursor:pointer;margin-to
 <button type="button" id="firstPinSave" class="primary-btn">Save my PIN</button>
 <button type="button" id="firstPinSignOut" class="settings-toggle" style="color:var(--cream);margin:14px 0 0">Sign Out Instead</button>
 </div></div>
-<div class="role-footer"><button class="role-pill" id="roleBtn">Front Desk</button></div><div class="device-footer" id="currentDeviceLabel" aria-live="polite">Device: Checking authorization...</div>
+<div class="role-footer"><button class="role-pill" id="roleBtn">Front Desk</button></div><div class="device-footer" id="currentDeviceLabel" aria-live="polite">Device: Checking authorization...</div><div class="device-footer" id="buildVersion" style="margin-top:5px;opacity:.65;font-size:11px;">Build 2026.11.002</div>
 </div>
 
 <div id="inviteOnboarding" class="invite-onboard-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="inviteOnboardTitle">
@@ -527,6 +527,7 @@ const WORKSTATION_KEY = 'gr-short-game-workstation-v1';
 const MANAGER_SESSION_KEY = 'gr-short-game-manager-session-start-v1';
 const MANAGER_PIN_FUNCTION = 'short-game-pin-login';
 const REMEMBERED_MANAGER_KEY = 'gr-short-game-remembered-manager-v1';
+localStorage.removeItem(REMEMBERED_MANAGER_KEY);
 const MANAGER_MAX_MS = 5 * 60 * 1000;
 const MANAGER_TYPING_GRACE_MS = 60 * 1000;
 let workstationToken = localStorage.getItem(WORKSTATION_KEY) || '';
@@ -1030,7 +1031,7 @@ document.getElementById('roleBtn').onclick = async () => {
   await checkMemberSession();
   if(memberAuthenticated){setRole('manager');}
   updateMemberAuthUI();
-  memberMsg(memberAuthenticated?'Manager signed in.':'Choose your name and enter your PIN, or sign in with email and password.');
+  memberMsg(memberAuthenticated?'Manager signed in.':verifiedManager()?'Enter your PIN.':'Verify your manager email and password to enable PIN sign-in.');
    if(!memberAuthenticated)await refreshPinManagerList();
   syncManagerToolButtons();
   panel.scrollIntoView({behavior:'smooth',block:'center'});
@@ -1319,49 +1320,34 @@ async function findMembers(q){
 }
 function showMatches(target,members,onPick){target.replaceChildren();if(!members.length){target.textContent='No matching members found.';return;}members.forEach(m=>{const b=document.createElement('button');b.type='button';b.className='member-result';b.textContent=`${m.first_name} ${m.last_name} · ${m.phone||'No phone'} · ${m.membership_status||'Unknown'} · ${m.membership_type||''}`;b.onclick=()=>onPick(m);target.appendChild(b);});}
 async function checkMemberSession(){if(managerSessionExpired()){await endManagerSession();return;}const {data}=await supabaseClient.auth.getSession();if(!data?.session){memberAuthenticated=false;return;}if(!managerSessionStart()){memberAuthenticated=false;await supabaseClient.auth.signOut();return;}const {data:ok,error}=await supabaseClient.rpc('is_membership_manager');memberAuthenticated=!error && ok===true;}
-function rememberedManager(){
-  try {const value=JSON.parse(localStorage.getItem(REMEMBERED_MANAGER_KEY)||'null');
-    return value && typeof value.id==='string' && typeof value.name==='string' ? value : null;
-  }catch(_){return null;}
+// A PIN is offered only after this browser has completed email/password verification.
+// Binding is scoped to the current authorized workstation credential.
+const VERIFIED_MANAGER_KEY='gr-short-game-verified-manager-v2';
+function verifiedManager(){
+ try {const v=JSON.parse(localStorage.getItem(VERIFIED_MANAGER_KEY)||'null');return v&&typeof v.id==='string'&&v.device===workstationToken?v:null;}catch(_){return null;}
 }
 function displayPinManagerChoice(){
-  const selected=rememberedManager();
-  document.getElementById('pinRememberedManager').hidden=!selected;
-  document.getElementById('pinManagerPicker').hidden=!!selected;
-  document.getElementById('pinManagerIdentity').textContent=selected?.name||'';
+ const verified=verifiedManager();
+ document.getElementById('pinOnlyArea').hidden=!verified;
+ document.getElementById('credentialLoginArea').hidden=!!verified;
+ if(!verified)document.getElementById('pinRecoveryDetails').hidden=true;
 }
 document.getElementById('pinSwitchManager').onclick=()=>{
-  localStorage.removeItem(REMEMBERED_MANAGER_KEY);
-  displayPinManagerChoice();
-  document.getElementById('pinLoginValue').value='';
-  document.getElementById('pinLoginMessage').textContent='Select your manager account.';
-  refreshPinManagerList();
+ localStorage.removeItem(VERIFIED_MANAGER_KEY);
+ document.getElementById('pinLoginValue').value='';
+ document.getElementById('pinLoginMessage').textContent='';
+ displayPinManagerChoice();
 };
-async function refreshPinManagerList(){
-  const select=document.getElementById('pinManagerSelect');
-  if(!workstationReady){select.replaceChildren(new Option('Authorize this browser first',''));return;}
-  try{
-    const {data,error}=await supabaseClient.functions.invoke(MANAGER_PIN_FUNCTION,{body:{action:'list',workstation_token:workstationToken}});
-    if(error||!Array.isArray(data?.managers))throw new Error('Manager list unavailable');
-    const old=select.value;select.replaceChildren(new Option('Select manager',''));
-    for(const manager of data.managers)select.add(new Option(manager.display_name,manager.user_id));
-    if([...select.options].some(o=>o.value===old))select.value=old;
-    const remembered=rememberedManager();
-    if(remembered && !data.managers.some(m=>m.user_id===remembered.id)){
-      localStorage.removeItem(REMEMBERED_MANAGER_KEY);
-    }
-    displayPinManagerChoice();
-  }catch(e){select.replaceChildren(new Option('Manager list unavailable',''));console.warn(e);displayPinManagerChoice();}
-}
+async function refreshPinManagerList(){displayPinManagerChoice();}
 document.getElementById('pinLoginValue').addEventListener('keydown',e=>{
  if(e.key==='Enter'&&!e.isComposing){e.preventDefault();document.getElementById('pinLoginBtn').click();}
 });
 document.getElementById('pinLoginBtn').onclick=async()=>{
   const btn=document.getElementById('pinLoginBtn');
   const message=document.getElementById('pinLoginMessage');
-  const user_id=document.getElementById('pinManagerSelect').value;
+  const user_id=verifiedManager()?.id;
   const pin=document.getElementById('pinLoginValue').value;
-  if(!user_id||!/^[0-9]{4}$/.test(pin)){message.textContent='Enter your 4-digit PIN (select a manager if needed).';return;}
+  if(!user_id||!/^[0-9]{4}$/.test(pin)){message.textContent=user_id?'Enter your 4-digit PIN.':'Verify your email and password on this browser first.';return;}
   btn.disabled=true;message.textContent='Signing in...';
   try{
     if(!workstationReady)throw new Error('Authorize this browser first.');
@@ -1372,11 +1358,7 @@ document.getElementById('pinLoginBtn').onclick=async()=>{
     if(result.error)throw result.error;
     startManagerSessionClock();await checkMemberSession();
     if(!memberAuthenticated){clearManagerSessionClock();await supabaseClient.auth.signOut();throw new Error('Manager access not available.');}
-    const selectedOption=[...document.getElementById('pinManagerSelect').options].find(o=>o.value===user_id);
-     const previous=rememberedManager();
-     const name=selectedOption?.textContent||previous?.name||'Manager';
-     localStorage.setItem(REMEMBERED_MANAGER_KEY,JSON.stringify({id:user_id,name}));
-     displayPinManagerChoice();
+     // Never enroll an account from PIN-only authentication.
      setRole('manager');updateMemberAuthUI();memberMsg('Manager signed in. Session expires after 5 minutes unless actively typing.');await showFirstPinSetupIfNeeded();
   }catch(e){message.textContent=e.message;}
   finally{btn.disabled=false;}
@@ -1384,7 +1366,7 @@ document.getElementById('pinLoginBtn').onclick=async()=>{
 function updateMemberAuthUI(){document.getElementById('memberLoginArea').style.display=memberAuthenticated?'none':'block';document.getElementById('memberAdminArea').style.display=memberAuthenticated?'block':'none';document.getElementById('managerRecoveryArea').style.display=memberAuthenticated?'none':'block';document.getElementById('bookingMemberLookup').style.display=document.getElementById('bookForm').style.display==='none'?'none':'block';}
 document.getElementById('membershipToggle').onclick=async()=>{const panel=document.getElementById('membershipPanel');panel.style.display=panel.style.display==='none'?'block':'none';if(panel.style.display!=='none'){document.getElementById('settingsPanel').style.display='none';await checkMemberSession();updateMemberAuthUI();}syncManagerToolButtons();};
 document.getElementById('memberClose').onclick=()=>{document.getElementById('membershipPanel').style.display='none';syncManagerToolButtons();};
-document.getElementById('memberLogin').onclick=async()=>{memberMsg('Signing in...');const email=document.getElementById('memberEmail').value.trim(),password=document.getElementById('memberPassword').value;try{const {error}=await supabaseClient.auth.signInWithPassword({email,password});document.getElementById('memberPassword').value='';if(error)throw error;startManagerSessionClock();await checkMemberSession();if(!memberAuthenticated){clearManagerSessionClock();await supabaseClient.auth.signOut();throw new Error('This account is not authorized for membership management.');}setRole('manager');updateMemberAuthUI();memberMsg('Manager signed in. Session expires in 5 minutes unless actively typing.');await showFirstPinSetupIfNeeded();}catch(e){memberMsg(e.message);}};
+document.getElementById('memberLogin').onclick=async()=>{memberMsg('Signing in...');const email=document.getElementById('memberEmail').value.trim(),password=document.getElementById('memberPassword').value;try{const {error}=await supabaseClient.auth.signInWithPassword({email,password});document.getElementById('memberPassword').value='';if(error)throw error;startManagerSessionClock();await checkMemberSession();if(!memberAuthenticated){clearManagerSessionClock();await supabaseClient.auth.signOut();throw new Error('This account is not authorized for membership management.');}const {data:identity}=await supabaseClient.auth.getUser();if(!identity?.user?.id)throw new Error('Could not verify account identity.');localStorage.setItem(VERIFIED_MANAGER_KEY,JSON.stringify({id:identity.user.id,device:workstationToken}));displayPinManagerChoice();setRole('manager');updateMemberAuthUI();memberMsg('Manager signed in. Session expires in 5 minutes unless actively typing.');await showFirstPinSetupIfNeeded();}catch(e){memberMsg(e.message);}};
 document.getElementById('memberLogout').onclick=async()=>{await endManagerSession('Manager signed out.');};
 document.getElementById('managerSignOut').onclick=async()=>{await endManagerSession('Manager signed out.');};
 document.getElementById('saveMyManagerPin').onclick=async()=>{
